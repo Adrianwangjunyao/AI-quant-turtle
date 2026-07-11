@@ -2,7 +2,7 @@
 GitHub Actions 数据刷新脚本
 读取 tushare 最新行情 → 重建 index.html（含嵌入式行情数据）
 """
-import os, sys, json, re
+import os, sys, json, re, time
 
 TOKEN = os.environ.get("TUSHARE_TOKEN", "")
 if not TOKEN:
@@ -42,6 +42,25 @@ STOCKS = {
     "隆基绿能": "601012.SH",
 }
 
+# 一次性获取所有股票的复权因子（tushare adj_factor 限制 1次/分钟）
+ADJ_FACTOR_MAP = {}
+try:
+    all_codes = ",".join(STOCKS.values())
+    print(f"📦 批量获取复权因子: {all_codes}")
+    adj_df = pro.adj_factor(ts_code=all_codes, start_date="20200101", end_date="20260731")
+    if adj_df is not None and not adj_df.empty:
+        adj_df["trade_date"] = adj_df["trade_date"].astype(str)
+        for code in STOCKS.values():
+            sub = adj_df[adj_df["ts_code"] == code].copy()
+            if not sub.empty:
+                sub = sub.sort_values("trade_date").reset_index(drop=True)
+                ADJ_FACTOR_MAP[code] = sub[["trade_date", "adj_factor"]]
+        print(f"  ✅ 获取到 {len(ADJ_FACTOR_MAP)} 只股票的复权因子")
+    else:
+        print("  ⚠️ 复权因子返回为空")
+except Exception as e:
+    print(f"  ❌ 批量获取复权因子失败: {e}")
+
 
 def fetch_stock(ts_code: str, name: str) -> list:
     """获取单只股票的前复权日线数据"""
@@ -59,16 +78,17 @@ def fetch_stock(ts_code: str, name: str) -> list:
         df = df.sort_values("trade_date").reset_index(drop=True)
         df["trade_date"] = df["trade_date"].astype(str)
 
-        # 获取复权因子并计算前复权
-        adj = pro.adj_factor(ts_code=ts_code, start_date="20200101", end_date="20260731")
-        if adj is not None and not adj.empty:
-            adj["trade_date"] = adj["trade_date"].astype(str)
+        # 合并预获取的复权因子
+        if ts_code in ADJ_FACTOR_MAP:
+            adj = ADJ_FACTOR_MAP[ts_code]
             df = df.merge(adj[["trade_date", "adj_factor"]], on="trade_date", how="left")
-            df["adj_factor"] = df["adj_factor"].fillna(method="ffill")
+            df["adj_factor"] = df["adj_factor"].ffill()
             if df["adj_factor"].notna().any():
                 last_adj = df["adj_factor"].dropna().iloc[-1]
                 for col in ["open", "high", "low", "close"]:
                     df[col] = (df[col] * df["adj_factor"] / last_adj).round(2)
+        else:
+            print(f"  ⚠️ {name} ({ts_code}): 无复权因子")
 
         rows = []
         for _, r in df.iterrows():
