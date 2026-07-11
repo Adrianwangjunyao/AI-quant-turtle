@@ -2,9 +2,11 @@ name: 每日刷新回测数据
 
 on:
   schedule:
-    # 中国时间 16:30 (UTC 8:30) 每天跑一次，A股15点收盘
     - cron: '30 8 * * 1-5'
-  workflow_dispatch:   # 手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   refresh:
