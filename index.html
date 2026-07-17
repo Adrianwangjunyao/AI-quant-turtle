@@ -177,8 +177,8 @@ function runTurtleBacktest(params) {
   if (!stockData) return {error: '股票数据不存在'};
 
   // 时间过滤
-  const startDate = params.startDate;
-  const endDate = params.endDate;
+  const startDate = params.startDate.replace(/-/g, "");
+  const endDate = params.endDate.replace(/-/g, "");
   const filtered = stockData.filter(r => r[0] >= startDate && r[0] <= endDate);
   if (filtered.length < 60) return {error: '数据不足'};
 
