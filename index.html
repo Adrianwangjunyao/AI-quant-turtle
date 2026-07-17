@@ -81,8 +81,8 @@ body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#f5f5f5;c
 <div class="panel">
 <div class="panel-title">系统与资金</div>
 <div class="radio-group">
-<label><input type="radio" name="system" value="S1" checked> S1 (20×10)</label>
-<label><input type="radio" name="system" value="S2"> S2 (55×20)</label>
+<label><input type="radio" name="system" value="S1" checked onclick="setSystemDefaults('S1')"> S1 (20×10)</label>
+<label><input type="radio" name="system" value="S2" onclick="setSystemDefaults('S2')"> S2 (55×20)</label>
 </div>
 <div style="font-size:11px;color:#666;display:flex;align-items:center;gap:6px"><span>初始资金</span><input type="number" id="initialCapital" value="1000000" style="flex:1"></div>
 </div>
@@ -407,6 +407,23 @@ function runTurtleBacktest(params) {
       tradeRecords: trades.slice(0, 50),
     }
   };
+}
+
+// S1/S2 系统切换时更新滑块默认值
+function setSystemDefaults(system) {
+  if (system === "S1") {
+    document.getElementById("entryWindow").value = 20;
+    document.getElementById("exitWindow").value = 10;
+    document.getElementById("atrPeriod").value = 20;
+  } else {
+    document.getElementById("entryWindow").value = 55;
+    document.getElementById("exitWindow").value = 20;
+    document.getElementById("atrPeriod").value = 20;
+  }
+  // 同步显示值
+  document.getElementById("v_entry").textContent = document.getElementById("entryWindow").value;
+  document.getElementById("v_exit").textContent = document.getElementById("exitWindow").value;
+  document.getElementById("v_atr").textContent = document.getElementById("atrPeriod").value;
 }
 
 // ================== 图表渲染 ==================
