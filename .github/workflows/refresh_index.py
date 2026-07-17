@@ -126,31 +126,64 @@ def main():
         print("❌ 未获取到任何数据，跳过更新")
         sys.exit(1)
 
-    # 构建新的 JS 数据
-    new_js = "var STOCK_DATA = " + json.dumps(all_data, ensure_ascii=False) + ";\n"
-
     # 读取 index.html
     with open(INDEX_PATH, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # 替换 STOCK_DATA 部分
-    pattern = r'var STOCK_DATA\s*=\s*\{[\s\S]*?\};'
-    match = re.search(pattern, html)
-    if not match:
-        # 尝试另一种格式（带空格和换行）
-        pattern = r'var STOCK_DATA\s*=\s*\{[\s\S]*?\}\s*;'
-        match = re.search(pattern, html)
-
-    if match:
-        html = html.replace(match.group(0), new_js.strip().rstrip(";"))
-        with open(INDEX_PATH, "w", encoding="utf-8") as f:
-            f.write(html)
-        total = sum(len(v) for v in all_data.values())
-        print(f"\n✅ index.html 已更新 ({total} 条记录, {len(all_data)} 只股票)")
-    else:
-        print("❌ 无法在 index.html 中找到 STOCK_DATA 变量定义")
-        print("   请检查 index.html 中数据格式是否为: var STOCK_DATA = {...};")
+    # 替换 STOCK_DATA 部分（按大括号配对精确定位，避免误删 JS 代码）
+    start_marker = "var STOCK_DATA = "
+    start_idx = html.find(start_marker)
+    if start_idx < 0:
+        print("❌ 无法在 index.html 中找到 var STOCK_DATA 定义")
         sys.exit(1)
+
+    # 从第一个 { 开始按大括号配对定位结束位置
+    pos = start_idx + len(start_marker)
+    while pos < len(html) and html[pos].isspace():
+        pos += 1
+    if pos >= len(html) or html[pos] != "{":
+        print("❌ var STOCK_DATA 后面未找到 {")
+        sys.exit(1)
+
+    depth = 0
+    end_idx = -1
+    i = pos
+    while i < len(html):
+        c = html[i]
+        if c == '"':
+            # 跳过字符串内的内容（避免误判字符串里的 { } 或 [ ]）
+            i += 1
+            while i < len(html):
+                if html[i] == '\\':
+                    i += 2
+                    continue
+                if html[i] == '"':
+                    break
+                i += 1
+        elif c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                end_idx = i + 1
+                # 吃掉后面的分号（如果有）
+                if end_idx < len(html) and html[end_idx] == ';':
+                    end_idx += 1
+                break
+        i += 1
+
+    if end_idx < 0:
+        print("❌ 无法在 index.html 中找到 STOCK_DATA 的结束 }")
+        sys.exit(1)
+
+    # 替换 [start_idx, end_idx) 区间
+    new_data = "var STOCK_DATA = " + json.dumps(all_data, ensure_ascii=False) + ";\n"
+    html = html[:start_idx] + new_data + html[end_idx:]
+
+    with open(INDEX_PATH, "w", encoding="utf-8") as f:
+        f.write(html)
+    total = sum(len(v) for v in all_data.values())
+    print(f"\n✅ index.html 已更新 ({total} 条记录, {len(all_data)} 只股票)")
 
 
 if __name__ == "__main__":
