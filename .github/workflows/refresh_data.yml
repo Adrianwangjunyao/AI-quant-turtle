@@ -22,7 +22,7 @@ jobs:
 
       - name: 安装依赖
         run: |
-          pip install tushare pandas numpy
+          pip install tushare pandas numpy six
 
       - name: 获取最新行情并回测
         env:

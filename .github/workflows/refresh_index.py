@@ -21,7 +21,7 @@ print(f"📂 index.html 是否存在: {os.path.exists(INDEX_PATH)}")
 
 # 先安装 tushare
 print("\n📦 安装 tushare...")
-os.system(f"{sys.executable} -m pip install tushare pandas numpy -q")
+os.system(f"{sys.executable} -m pip install tushare pandas numpy six -q")
 print("✅ 安装完成")
 
 # 延迟导入 (确保 tushare 已安装)
@@ -42,12 +42,18 @@ STOCKS = {
     "隆基绿能": "601012.SH",
 }
 
-# 一次性获取所有股票的复权因子（tushare adj_factor 限制 1次/分钟）
+# 动态计算日期范围: 数据从 2020-01-01 至今（避免写死日期导致数据不再增长）
+from datetime import datetime, timedelta
+END_DATE = (datetime.now() + timedelta(hours=8)).strftime("%Y%m%d")  # UTC+8
+START_DATE = "20200101"
+print(f"📅 数据范围: {START_DATE} ~ {END_DATE}")
+
+# 一次性获取所有股票的复权因子（tushare adj_factor 限制 1次/小时）
 ADJ_FACTOR_MAP = {}
 try:
     all_codes = ",".join(STOCKS.values())
     print(f"📦 批量获取复权因子: {all_codes}")
-    adj_df = pro.adj_factor(ts_code=all_codes, start_date="20200101", end_date="20260731")
+    adj_df = pro.adj_factor(ts_code=all_codes, start_date=START_DATE, end_date=END_DATE)
     if adj_df is not None and not adj_df.empty:
         adj_df["trade_date"] = adj_df["trade_date"].astype(str)
         for code in STOCKS.values():
@@ -67,8 +73,8 @@ def fetch_stock(ts_code: str, name: str) -> list:
     try:
         df = pro.daily(
             ts_code=ts_code,
-            start_date="20200101",
-            end_date="20260731",
+            start_date=START_DATE,
+            end_date=END_DATE,
             fields="trade_date,open,high,low,close,vol",
         )
         if df is None or df.empty:
